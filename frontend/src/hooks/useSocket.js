@@ -10,7 +10,7 @@ export const useSocket = () => {
   useEffect(() => {
     if (token) {
       // Connect to the backend with the auth token
-      const newSocket = io('http://localhost:5000', {
+      const newSocket = io('https://smart-b2b.onrender.com', {
         auth: { token }
       });
 
