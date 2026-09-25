@@ -13,6 +13,7 @@ import WholesalerDirectory from './pages/WholesalerDirectory';
 
 function App() {
   const dispatch = useDispatch();
+  
   // --- CROSS-TAB SYNC LISTENER ---
   useEffect(() => {
     const handleStorageChange = (e) => {
@@ -27,6 +28,7 @@ function App() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [dispatch]);
   // --------------------------------
+  
   return (
     <BrowserRouter>
       <div className="min-h-screen flex flex-col bg-gray-50">
@@ -36,7 +38,7 @@ function App() {
         
         <main className="flex-grow p-4">
           <Routes>
-            {/*signup routes */}
+            {/* Signup routes */}
             <Route path="/signup" element={<Signup />} />
 
             {/* Public Routes */}
@@ -44,8 +46,6 @@ function App() {
             <Route path="/login" element={<Login />} />
 
             {/* Retailer Protected Routes */}
-            
-            {/* NAYA ROUTE: Ye retailer ko wholesalers ki list dikhayega */}
             <Route 
               path="/retailer/wholesalers" 
               element={
@@ -55,7 +55,6 @@ function App() {
               } 
             />
 
-            {/* UPDATED ROUTE: Isme '/:wholesalerId' lagana zaroori hai */}
             <Route 
               path="/retailer/catalog/:wholesalerId" 
               element={
@@ -64,6 +63,17 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+            {/* Wholesaler Protected Routes */}
+            <Route 
+              path="/wholesaler/dashboard" 
+              element={
+                <ProtectedRoute allowedRole="WHOLESALER">
+                  <WholesalerDashboard /> 
+                </ProtectedRoute>
+              } 
+            />
+          </Routes>
         </main>
       </div>
     </BrowserRouter>
