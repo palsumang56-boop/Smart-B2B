@@ -31,7 +31,7 @@ export default function InventoryTable() {
     
     const fetchLiveInventory = async () => {
       try {
-        const res = await fetch(`https://smart-b2b.onrender.com/api/catalog/wholesaler/${wholesalerId}`, {
+        const res = await fetch(`https://smart-b2b.onrender.com/api/products/wholesaler/${wholesalerId}`, {
           headers: {
             'Authorization': `Bearer ${token}` // Added token for security
           }
