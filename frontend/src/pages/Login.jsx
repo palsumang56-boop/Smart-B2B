@@ -17,7 +17,7 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await fetch('https://smart-b2b.onrender.com/api/auth/login](https://smart-b2b.onrender.com/api/auth/login', {
+      const response = await fetch('https://smart-b2b.onrender.com/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
