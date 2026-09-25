@@ -8,7 +8,7 @@ export default function CreditLedger({ onRetailerClick }) {
   useEffect(() => {
     const fetchRetailers = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/auth/retailers');
+        const response = await fetch('https://smart-b2b.onrender.com/api/auth/retailers');
         const data = await response.json();
         
         const formattedData = data.map(user => ({
