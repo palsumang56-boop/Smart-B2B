@@ -9,6 +9,7 @@ import { syncCart } from './store/cartSlice';
 import WholesalerDashboard from './pages/WholesalerDashboard';
 import Signup from './pages/Signup';
 import RetailerDashboard from './pages/RetailerDashboard';
+import WholesalerDirectory from './pages/WholesalerDirectory';
 
 function App() {
   const dispatch = useDispatch();
