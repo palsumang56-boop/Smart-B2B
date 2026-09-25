@@ -43,28 +43,27 @@ function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
 
-            
             {/* Retailer Protected Routes */}
+            
+            {/* NAYA ROUTE: Ye retailer ko wholesalers ki list dikhayega */}
             <Route 
-              path="/retailer/catalog" 
+              path="/retailer/wholesalers" 
               element={
                 <ProtectedRoute allowedRole="RETAILER">
-                  <Catalog /> {/* <-- 2. VERIFY THE PLACEHOLDER WAS REPLACED WITH THIS */}
+                  <WholesalerDirectory /> 
                 </ProtectedRoute>
               } 
             />
 
-
-            {/* Wholesaler Protected Routes */}
+            {/* UPDATED ROUTE: Isme '/:wholesalerId' lagana zaroori hai */}
             <Route 
-              path="/wholesaler/dashboard" 
+              path="/retailer/catalog/:wholesalerId" 
               element={
-                <ProtectedRoute allowedRole="WHOLESALER">
-                  <WholesalerDashboard /> {/* <-- Replace the old div with this */}
+                <ProtectedRoute allowedRole="RETAILER">
+                  <Catalog /> 
                 </ProtectedRoute>
               } 
             />
-          </Routes>
         </main>
       </div>
     </BrowserRouter>
