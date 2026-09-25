@@ -1,167 +1,218 @@
-import { useState, useEffect } from 'react';
 
-export default function InventoryTable() {
+import React, { useState, useEffect } from 'react';
+
+const InventoryTable = () => {
   const [inventory, setInventory] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newItem, setNewItem] = useState({ sku: '', name: '', category: '', unitPrice: '', stockQuantity: '' });
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    category: '',
+    unitPrice: '',
+    stockQuantity: ''
+  });
 
-  // SMART ID FINDER: Alag-alag storage keys ko check karega
-  const getWholesalerId = () => {
+  // 1. Token se ID nikalne ka logic (Directly from localStorage)
+  let wholesalerId = null;
+  const token = localStorage.getItem("token");
+
+  if (token) {
     try {
-      const userStr = localStorage.getItem('user') || localStorage.getItem('userInfo');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        return user._id || user.id || user.userId || user.wholesalerId;
-      }
-      return localStorage.getItem('userId') || localStorage.getItem('wholesalerId');
-    } catch (e) {
-      console.error("Error reading localStorage:", e);
-      return null;
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+
+      const decodedToken = JSON.parse(jsonPayload);
+      // 'id', '_id', ya 'wholesalerId' jo bhi backend bhej raha ho
+      wholesalerId = decodedToken.id || decodedToken._id || decodedToken.wholesalerId;
+    } catch (error) {
+      console.error("Token decode failed:", error);
     }
-  };
+  }
 
-  const wholesalerId = getWholesalerId();
-
+  // 2. Fetch Inventory on Component Mount
   useEffect(() => {
     if (!wholesalerId) {
-      console.warn("Wholesaler ID missing in localStorage!");
+      console.warn("Wholesaler ID missing! Please login again.");
       return;
     }
-    
-    const fetchLiveInventory = async () => {
+
+    const fetchInventory = async () => {
       try {
-        const res = await fetch(`https://smart-b2b.onrender.com/api/catalog/wholesaler/${wholesalerId}`);
-        if (res.ok) {
-          const data = await res.json();
+        const response = await fetch(`/api/catalog/wholesaler/${wholesalerId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const data = await response.json();
+        if (response.ok) {
           setInventory(data);
+        } else {
+          console.error("Failed to fetch inventory");
         }
       } catch (error) {
         console.error("Error fetching inventory:", error);
       }
     };
 
-    fetchLiveInventory();
-  }, [wholesalerId]);
+    fetchInventory();
+  }, [wholesalerId, token]);
 
+  // 3. Handle Add Stock Submit
   const handleAddStock = async (e) => {
     e.preventDefault();
-    
-    const currentId = getWholesalerId();
-    if (!currentId) {
-      alert("Wholesaler ID not found in storage. Please logout and login again.");
+
+    if (!wholesalerId) {
+      alert("Session expired. Please login again.");
       return;
     }
 
-    const productToAdd = {
-      wholesalerId: currentId,
-      sku: newItem.sku,
-      name: newItem.name,
-      category: newItem.category,
-      unitPrice: parseFloat(newItem.unitPrice),
-      stockQuantity: parseInt(newItem.stockQuantity)
-    };
-
     try {
-      const res = await fetch('https://smart-b2b.onrender.com/api/catalog', {
+      const response = await fetch('/api/catalog', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Backend JWT verify karega
         },
-        body: JSON.stringify(productToAdd)
+        body: JSON.stringify({
+          ...newProduct,
+          wholesalerId: wholesalerId // Ya fir ideal case mein backend isko token se khud nikal lega
+        })
       });
 
-      if (res.ok) {
-        const savedProduct = await res.json();
-        setInventory([savedProduct, ...inventory]); 
-        
-        setNewItem({ sku: '', name: '', category: '', unitPrice: '', stockQuantity: '' });
+      const savedProduct = await response.json();
+
+      if (response.ok) {
+        // UI ko turant update karna (Optimistic UI update)
+        setInventory([savedProduct, ...inventory]);
         setIsModalOpen(false);
+        setNewProduct({ name: '', category: '', unitPrice: '', stockQuantity: '' });
       } else {
-        const errData = await res.json();
-        alert(`Failed to save: ${errData.error || 'Unknown error'}`);
+        alert(savedProduct.message || "Failed to add stock");
       }
     } catch (error) {
-      console.error("Error saving product:", error);
+      console.error("Error adding stock:", error);
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden relative">
-      <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-        <h3 className="font-bold text-gray-800">Current Inventory</h3>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">Inventory Dashboard</h2>
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+          className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition"
         >
           + Add Stock
         </button>
       </div>
-      
-      <div className="overflow-x-auto">
+
+      {/* Warning message agar ID na mile */}
+      {!wholesalerId && (
+        <div className="bg-red-100 text-red-700 p-4 rounded mb-4">
+          Wholesaler ID not found in storage. Please logout and login again.
+        </div>
+      )}
+
+      {/* Inventory Table */}
+      <div className="bg-white shadow rounded-lg overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-gray-50 text-gray-600 text-sm border-b">
-              <th className="p-3 font-semibold">SKU</th>
-              <th className="p-3 font-semibold">Product Name</th>
-              <th className="p-3 font-semibold">Category</th>
-              <th className="p-3 font-semibold">Unit Price</th>
-              <th className="p-3 font-semibold">Stock Level</th>
-              <th className="p-3 font-semibold">Status</th>
+            <tr className="bg-gray-100 text-gray-700 border-b">
+              <th className="p-4">Product Name</th>
+              <th className="p-4">Category</th>
+              <th className="p-4">Unit Price</th>
+              <th className="p-4">Stock Quantity</th>
             </tr>
           </thead>
           <tbody>
-            {inventory.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="p-4 text-center text-gray-500 italic">No products found. Add some stock!</td>
-              </tr>
-            ) : (
-              inventory.map((item) => (
-                <tr key={item._id} className="border-b hover:bg-gray-50 transition">
-                  <td className="p-3 text-sm font-mono text-gray-500">{item.sku}</td>
-                  <td className="p-3 text-sm font-medium text-gray-800">{item.name}</td>
-                  <td className="p-3 text-sm text-gray-600">{item.category}</td>
-                  <td className="p-3 text-sm text-gray-600">${item.unitPrice.toFixed(2)}</td>
-                  <td className="p-3 text-sm font-bold text-gray-700">{item.stockQuantity}</td>
-                  <td className="p-3">
-                    {item.stockQuantity > 50 ? (
-                      <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Healthy</span>
-                    ) : item.stockQuantity > 0 ? (
-                      <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">Low Stock</span>
-                    ) : (
-                      <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">Out of Stock</span>
-                    )}
+            {inventory.length > 0 ? (
+              inventory.map((item, index) => (
+                <tr key={item._id || index} className="border-b hover:bg-gray-50">
+                  <td className="p-4 font-medium text-gray-900">{item.name}</td>
+                  <td className="p-4 text-gray-600">{item.category}</td>
+                  <td className="p-4 text-gray-600">${item.unitPrice}</td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded text-sm font-semibold ${item.stockQuantity > 10 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {item.stockQuantity}
+                    </span>
                   </td>
                 </tr>
               ))
+            ) : (
+              <tr>
+                <td colSpan="4" className="p-6 text-center text-gray-500">
+                  No products found. Click "Add Stock" to add items.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* --- ADD STOCK MODAL (FIXED) --- */}
+      {/* Add Stock Modal - Fixed CSS applied here */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-[100]">
-          <div className="bg-white p-6 rounded shadow-lg w-96">
-            <h2 className="text-xl font-bold mb-4">Add New Stock</h2>
-            <form onSubmit={handleAddStock} className="space-y-3">
-              <input required type="text" placeholder="SKU (e.g. SKU-1004)" className="w-full border p-2 rounded" 
-                value={newItem.sku} onChange={(e) => setNewItem({...newItem, sku: e.target.value})} />
-              
-              <input required type="text" placeholder="Product Name" className="w-full border p-2 rounded"
-                value={newItem.name} onChange={(e) => setNewItem({...newItem, name: e.target.value})} />
-
-              <input required type="text" placeholder="Category (e.g. Grains)" className="w-full border p-2 rounded"
-                value={newItem.category} onChange={(e) => setNewItem({...newItem, category: e.target.value})} />
-              
-              <input required type="number" step="0.01" placeholder="Unit Price ($)" className="w-full border p-2 rounded"
-                value={newItem.unitPrice} onChange={(e) => setNewItem({...newItem, unitPrice: e.target.value})} />
-              
-              <input required type="number" placeholder="Stock Quantity" className="w-full border p-2 rounded"
-                value={newItem.stockQuantity} onChange={(e) => setNewItem({...newItem, stockQuantity: e.target.value})} />
-              
-              <div className="flex gap-2 mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="w-1/2 bg-gray-300 p-2 rounded">Cancel</button>
-                <button type="submit" className="w-1/2 bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Save Item</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-xl">
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Add New Product</h3>
+            <form onSubmit={handleAddStock}>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2">Product Name</label>
+                <input 
+                  type="text" 
+                  required
+                  className="w-full border rounded px-3 py-2 text-gray-700 focus:outline-none focus:border-blue-500"
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2">Category</label>
+                <input 
+                  type="text" 
+                  required
+                  className="w-full border rounded px-3 py-2 text-gray-700 focus:outline-none focus:border-blue-500"
+                  value={newProduct.category}
+                  onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
+                />
+              </div>
+              <div className="mb-4 flex gap-4">
+                <div className="w-1/2">
+                  <label className="block text-gray-700 text-sm font-bold mb-2">Unit Price</label>
+                  <input 
+                    type="number" 
+                    required min="0"
+                    className="w-full border rounded px-3 py-2 text-gray-700 focus:outline-none focus:border-blue-500"
+                    value={newProduct.unitPrice}
+                    onChange={(e) => setNewProduct({...newProduct, unitPrice: e.target.value})}
+                  />
+                </div>
+                <div className="w-1/2">
+                  <label className="block text-gray-700 text-sm font-bold mb-2">Quantity</label>
+                  <input 
+                    type="number" 
+                    required min="1"
+                    className="w-full border rounded px-3 py-2 text-gray-700 focus:outline-none focus:border-blue-500"
+                    value={newProduct.stockQuantity}
+                    onChange={(e) => setNewProduct({...newProduct, stockQuantity: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium"
+                >
+                  Save Product
+                </button>
               </div>
             </form>
           </div>
@@ -169,4 +220,6 @@ export default function InventoryTable() {
       )}
     </div>
   );
-}
+};
+
+export default InventoryTable;
