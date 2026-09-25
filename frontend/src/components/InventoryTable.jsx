@@ -1,43 +1,79 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function InventoryTable() {
-  // Inventory state ko update karne ke liye setInventory add kiya
-  const [inventory, setInventory] = useState([
-    { _id: '1', sku: 'SKU-1001', name: 'Premium Rice 50kg', stockQuantity: 450, unitPrice: 45.00 },
-    { _id: '2', sku: 'SKU-1002', name: 'Refined Oil 15L', stockQuantity: 12, unitPrice: 28.50 },
-    { _id: '3', sku: 'SKU-1003', name: 'Whole Wheat Flour 10kg', stockQuantity: 0, unitPrice: 12.00 },
-  ]);
+  // 1. Initial state ko empty array [] rakhein
+  const [inventory, setInventory] = useState([]);
 
-  // Modal kholne/band karne aur form data ke liye naye states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newItem, setNewItem] = useState({ sku: '', name: '', unitPrice: '', stockQuantity: '' });
 
-  // Form submit handle karne ka function
-  const handleAddStock = (e) => {
+  // 2. Apne logged-in user (wholesaler) ki ID lein. 
+  // (Agar aap Redux use kar rahe hain toh useSelector laga lein, yahan main localStorage ka example de raha hoon)
+  const user = JSON.parse(localStorage.getItem('user')) || {};
+  const wholesalerId = user._id || user.id;
+
+  // 3. Page load hote hi MongoDB se live data laane ka function
+  useEffect(() => {
+    if (!wholesalerId) return;
+    
+    const fetchLiveInventory = async () => {
+      try {
+        const res = await fetch(`https://smart-b2b.onrender.com/api/catalog/wholesaler/${wholesalerId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setInventory(data); // Database se aane wala data set karein
+        }
+      } catch (error) {
+        console.error("Error fetching inventory:", error);
+      }
+    };
+
+    fetchLiveInventory();
+  }, [wholesalerId]);
+
+  // 4. Form submit hone par data MongoDB ko bhejna
+  const handleAddStock = async (e) => {
     e.preventDefault();
     
-    // Naya object banayein
+    // Naya object banayein jo backend ko bhejna hai
     const productToAdd = {
-      _id: Math.random().toString(), // Abhi ke liye dummy ID
+      wholesalerId: wholesalerId, // Backend ko pata chale ye kisne add kiya hai
       sku: newItem.sku,
       name: newItem.name,
       unitPrice: parseFloat(newItem.unitPrice),
       stockQuantity: parseInt(newItem.stockQuantity)
     };
 
-    // Table mein naya item add karein
-    setInventory([productToAdd, ...inventory]);
-    
-    // Form reset aur Modal band karein
-    setNewItem({ sku: '', name: '', unitPrice: '', stockQuantity: '' });
-    setIsModalOpen(false);
+    try {
+      // POST request backend par bhejein
+      const res = await fetch('https://smart-b2b.onrender.com/api/catalog', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productToAdd)
+      });
+
+      if (res.ok) {
+        const savedProduct = await res.json();
+        // Success hone par UI mein bhi turant update karein
+        setInventory([savedProduct, ...inventory]); 
+        
+        // Form reset aur Modal band karein
+        setNewItem({ sku: '', name: '', unitPrice: '', stockQuantity: '' });
+        setIsModalOpen(false);
+      } else {
+        alert("Failed to save product in database.");
+      }
+    } catch (error) {
+      console.error("Error saving product:", error);
+    }
   };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden relative">
       <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
         <h3 className="font-bold text-gray-800">Current Inventory</h3>
-        {/* Button par onClick lagaya */}
         <button 
           onClick={() => setIsModalOpen(true)}
           className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
@@ -58,30 +94,36 @@ export default function InventoryTable() {
             </tr>
           </thead>
           <tbody>
-            {inventory.map((item) => (
-              <tr key={item._id} className="border-b hover:bg-gray-50 transition">
-                <td className="p-3 text-sm font-mono text-gray-500">{item.sku}</td>
-                <td className="p-3 text-sm font-medium text-gray-800">{item.name}</td>
-                <td className="p-3 text-sm text-gray-600">${item.unitPrice.toFixed(2)}</td>
-                <td className="p-3 text-sm font-bold text-gray-700">{item.stockQuantity}</td>
-                <td className="p-3">
-                  {item.stockQuantity > 50 ? (
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Healthy</span>
-                  ) : item.stockQuantity > 0 ? (
-                    <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">Low Stock</span>
-                  ) : (
-                    <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">Out of Stock</span>
-                  )}
-                </td>
+            {inventory.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="p-4 text-center text-gray-500 italic">No products found. Add some stock!</td>
               </tr>
-            ))}
+            ) : (
+              inventory.map((item) => (
+                <tr key={item._id} className="border-b hover:bg-gray-50 transition">
+                  <td className="p-3 text-sm font-mono text-gray-500">{item.sku}</td>
+                  <td className="p-3 text-sm font-medium text-gray-800">{item.name}</td>
+                  <td className="p-3 text-sm text-gray-600">${item.unitPrice.toFixed(2)}</td>
+                  <td className="p-3 text-sm font-bold text-gray-700">{item.stockQuantity}</td>
+                  <td className="p-3">
+                    {item.stockQuantity > 50 ? (
+                      <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Healthy</span>
+                    ) : item.stockQuantity > 0 ? (
+                      <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">Low Stock</span>
+                    ) : (
+                      <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">Out of Stock</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
       {/* --- ADD STOCK MODAL --- */}
       {isModalOpen && (
-        <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center p-4">
+        <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center p-4 z-50">
           <div className="bg-white p-6 rounded shadow-lg w-96">
             <h2 className="text-xl font-bold mb-4">Add New Stock</h2>
             <form onSubmit={handleAddStock} className="space-y-3">
