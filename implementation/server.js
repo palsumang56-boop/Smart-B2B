@@ -70,7 +70,7 @@ const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
 const catalogRoutes = require('./routes/catalogRoutes'); 
-app.use('/api/catalog', catalogRoutes);
+app.use('/api/products', catalogRoutes);
 // ==========================================
 // 5. SERVER START
 // ==========================================
