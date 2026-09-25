@@ -4,7 +4,7 @@ export const fetchCatalog = createAsyncThunk(
   'catalog/fetchCatalog',
   async (wholesalerId, thunkAPI) => {
     try {
-      const response = await fetch(`https://smart-b2b.onrender.com/api/catalog/wholesaler/${wholesalerId}`);
+      const response = await fetch(`https://smart-b2b.onrender.com/api/products/wholesaler/${wholesalerId}`);
       
       if (!response.ok) {
         throw new Error('Server error');
