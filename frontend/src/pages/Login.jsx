@@ -42,9 +42,9 @@ export default function Login() {
 
       // Branch the router based on role [cite: 24]
       if (payload.role === 'WHOLESALER') {
-        navigate('/wholesaler/dashboard');
+         navigate('/wholesaler/dashboard');
       } else if (payload.role === 'RETAILER') {
-        navigate('/retailer/catalog');
+       navigate('/retailer/wholesalers'); // Pehle ye '/retailer/catalog' tha
       }
 
     } catch (err) {
