@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react';
 
 export default function InventoryTable() {
-  // 1. Initial state ko empty array [] rakhein
   const [inventory, setInventory] = useState([]);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newItem, setNewItem] = useState({ sku: '', name: '', unitPrice: '', stockQuantity: '' });
+  
+  // 1. 'category' field ko state mein add kiya
+  const [newItem, setNewItem] = useState({ sku: '', name: '', category: '', unitPrice: '', stockQuantity: '' });
 
-  // 2. Apne logged-in user (wholesaler) ki ID lein. 
-  // (Agar aap Redux use kar rahe hain toh useSelector laga lein, yahan main localStorage ka example de raha hoon)
+  // 2. Wholesaler ID ko alag-alag possible keys se check karke secure kiya
   const user = JSON.parse(localStorage.getItem('user')) || {};
-  const wholesalerId = user._id || user.id;
+  const wholesalerId = user._id || user.id || user.wholesalerId;
 
-  // 3. Page load hote hi MongoDB se live data laane ka function
   useEffect(() => {
     if (!wholesalerId) return;
     
@@ -21,7 +19,7 @@ export default function InventoryTable() {
         const res = await fetch(`https://smart-b2b.onrender.com/api/catalog/wholesaler/${wholesalerId}`);
         if (res.ok) {
           const data = await res.json();
-          setInventory(data); // Database se aane wala data set karein
+          setInventory(data);
         }
       } catch (error) {
         console.error("Error fetching inventory:", error);
@@ -31,21 +29,25 @@ export default function InventoryTable() {
     fetchLiveInventory();
   }, [wholesalerId]);
 
-  // 4. Form submit hone par data MongoDB ko bhejna
   const handleAddStock = async (e) => {
     e.preventDefault();
     
-    // Naya object banayein jo backend ko bhejna hai
+    if (!wholesalerId) {
+      alert("Wholesaler ID not found. Please log in again.");
+      return;
+    }
+
+    // 3. Payload mein category bhi bhejni hai
     const productToAdd = {
-      wholesalerId: wholesalerId, // Backend ko pata chale ye kisne add kiya hai
+      wholesalerId: wholesalerId,
       sku: newItem.sku,
       name: newItem.name,
+      category: newItem.category, // <-- Added category
       unitPrice: parseFloat(newItem.unitPrice),
       stockQuantity: parseInt(newItem.stockQuantity)
     };
 
     try {
-      // POST request backend par bhejein
       const res = await fetch('https://smart-b2b.onrender.com/api/catalog', {
         method: 'POST',
         headers: {
@@ -56,14 +58,14 @@ export default function InventoryTable() {
 
       if (res.ok) {
         const savedProduct = await res.json();
-        // Success hone par UI mein bhi turant update karein
         setInventory([savedProduct, ...inventory]); 
         
-        // Form reset aur Modal band karein
-        setNewItem({ sku: '', name: '', unitPrice: '', stockQuantity: '' });
+        // Reset form & close modal
+        setNewItem({ sku: '', name: '', category: '', unitPrice: '', stockQuantity: '' });
         setIsModalOpen(false);
       } else {
-        alert("Failed to save product in database.");
+        const errData = await res.json();
+        alert(`Failed to save: ${errData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error("Error saving product:", error);
@@ -88,6 +90,7 @@ export default function InventoryTable() {
             <tr className="bg-gray-50 text-gray-600 text-sm border-b">
               <th className="p-3 font-semibold">SKU</th>
               <th className="p-3 font-semibold">Product Name</th>
+              <th className="p-3 font-semibold">Category</th>
               <th className="p-3 font-semibold">Unit Price</th>
               <th className="p-3 font-semibold">Stock Level</th>
               <th className="p-3 font-semibold">Status</th>
@@ -96,13 +99,14 @@ export default function InventoryTable() {
           <tbody>
             {inventory.length === 0 ? (
               <tr>
-                <td colSpan="5" className="p-4 text-center text-gray-500 italic">No products found. Add some stock!</td>
+                <td colSpan="6" className="p-4 text-center text-gray-500 italic">No products found. Add some stock!</td>
               </tr>
             ) : (
               inventory.map((item) => (
                 <tr key={item._id} className="border-b hover:bg-gray-50 transition">
                   <td className="p-3 text-sm font-mono text-gray-500">{item.sku}</td>
                   <td className="p-3 text-sm font-medium text-gray-800">{item.name}</td>
+                  <td className="p-3 text-sm text-gray-600">{item.category}</td>
                   <td className="p-3 text-sm text-gray-600">${item.unitPrice.toFixed(2)}</td>
                   <td className="p-3 text-sm font-bold text-gray-700">{item.stockQuantity}</td>
                   <td className="p-3">
@@ -121,7 +125,7 @@ export default function InventoryTable() {
         </table>
       </div>
 
-      {/* --- ADD STOCK MODAL (FIXED) --- */}
+      {/* --- ADD STOCK MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-[100]">
           <div className="bg-white p-6 rounded shadow-lg w-96">
@@ -132,6 +136,10 @@ export default function InventoryTable() {
               
               <input required type="text" placeholder="Product Name" className="w-full border p-2 rounded"
                 value={newItem.name} onChange={(e) => setNewItem({...newItem, name: e.target.value})} />
+
+              {/* 4. Modal mein Category input field jodi gayi hai */}
+              <input required type="text" placeholder="Category (e.g. Grains)" className="w-full border p-2 rounded"
+                value={newItem.category} onChange={(e) => setNewItem({...newItem, category: e.target.value})} />
               
               <input required type="number" step="0.01" placeholder="Unit Price ($)" className="w-full border p-2 rounded"
                 value={newItem.unitPrice} onChange={(e) => setNewItem({...newItem, unitPrice: e.target.value})} />
