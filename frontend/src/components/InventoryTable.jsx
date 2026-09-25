@@ -121,9 +121,9 @@ export default function InventoryTable() {
         </table>
       </div>
 
-      {/* --- ADD STOCK MODAL --- */}
+      {/* --- ADD STOCK MODAL (FIXED) --- */}
       {isModalOpen && (
-        <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-[100]">
           <div className="bg-white p-6 rounded shadow-lg w-96">
             <h2 className="text-xl font-bold mb-4">Add New Stock</h2>
             <form onSubmit={handleAddStock} className="space-y-3">
