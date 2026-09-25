@@ -3,16 +3,30 @@ import { useState, useEffect } from 'react';
 export default function InventoryTable() {
   const [inventory, setInventory] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // 1. 'category' field ko state mein add kiya
   const [newItem, setNewItem] = useState({ sku: '', name: '', category: '', unitPrice: '', stockQuantity: '' });
 
-  // 2. Wholesaler ID ko alag-alag possible keys se check karke secure kiya
-  const user = JSON.parse(localStorage.getItem('user')) || {};
-  const wholesalerId = user._id || user.id || user.wholesalerId;
+  // SMART ID FINDER: Alag-alag storage keys ko check karega
+  const getWholesalerId = () => {
+    try {
+      const userStr = localStorage.getItem('user') || localStorage.getItem('userInfo');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user._id || user.id || user.userId || user.wholesalerId;
+      }
+      return localStorage.getItem('userId') || localStorage.getItem('wholesalerId');
+    } catch (e) {
+      console.error("Error reading localStorage:", e);
+      return null;
+    }
+  };
+
+  const wholesalerId = getWholesalerId();
 
   useEffect(() => {
-    if (!wholesalerId) return;
+    if (!wholesalerId) {
+      console.warn("Wholesaler ID missing in localStorage!");
+      return;
+    }
     
     const fetchLiveInventory = async () => {
       try {
@@ -32,17 +46,17 @@ export default function InventoryTable() {
   const handleAddStock = async (e) => {
     e.preventDefault();
     
-    if (!wholesalerId) {
-      alert("Wholesaler ID not found. Please log in again.");
+    const currentId = getWholesalerId();
+    if (!currentId) {
+      alert("Wholesaler ID not found in storage. Please logout and login again.");
       return;
     }
 
-    // 3. Payload mein category bhi bhejni hai
     const productToAdd = {
-      wholesalerId: wholesalerId,
+      wholesalerId: currentId,
       sku: newItem.sku,
       name: newItem.name,
-      category: newItem.category, // <-- Added category
+      category: newItem.category,
       unitPrice: parseFloat(newItem.unitPrice),
       stockQuantity: parseInt(newItem.stockQuantity)
     };
@@ -60,7 +74,6 @@ export default function InventoryTable() {
         const savedProduct = await res.json();
         setInventory([savedProduct, ...inventory]); 
         
-        // Reset form & close modal
         setNewItem({ sku: '', name: '', category: '', unitPrice: '', stockQuantity: '' });
         setIsModalOpen(false);
       } else {
@@ -125,7 +138,7 @@ export default function InventoryTable() {
         </table>
       </div>
 
-      {/* --- ADD STOCK MODAL --- */}
+      {/* --- ADD STOCK MODAL (FIXED) --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-[100]">
           <div className="bg-white p-6 rounded shadow-lg w-96">
@@ -137,7 +150,6 @@ export default function InventoryTable() {
               <input required type="text" placeholder="Product Name" className="w-full border p-2 rounded"
                 value={newItem.name} onChange={(e) => setNewItem({...newItem, name: e.target.value})} />
 
-              {/* 4. Modal mein Category input field jodi gayi hai */}
               <input required type="text" placeholder="Category (e.g. Grains)" className="w-full border p-2 rounded"
                 value={newItem.category} onChange={(e) => setNewItem({...newItem, category: e.target.value})} />
               
